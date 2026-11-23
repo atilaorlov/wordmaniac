@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spacebar Challenge</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b1020; --panel:#151e33; --muted:#9aa8c2; --accent:#60a5fa; --accent2:#2563eb; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; padding:24px; font-family:system-ui,-apple-system,Segoe UI,sans-serif; color:#f8fafc; background:radial-gradient(circle at top,#1c3158 0,#0b1020 55%); }
+    main { width:min(100%,520px); }
+    header { text-align:center; margin-bottom:22px; }
+    .logo { font-size:48px; }
+    h1 { margin:6px 0; font-size:clamp(25px,6vw,36px); letter-spacing:-1px; }
+    header p,.muted { color:var(--muted); }
+    .panel { background:rgba(21,30,51,.94); border:1px solid #2a3958; border-radius:20px; padding:20px; margin:14px 0; box-shadow:0 14px 40px #0003; }
+    .label { text-align:center; font-size:13px; font-weight:800; letter-spacing:1px; color:var(--muted); margin-bottom:13px; }
+    .choices { display:flex; gap:10px; }
+    .choice { flex:1; padding:13px 8px; border:1px solid #3a4a6b; border-radius:12px; background:#10192c; color:#eaf2ff; font-size:17px; font-weight:800; cursor:pointer; }
+    .choice.active { background:#1d3e72; border:2px solid var(--accent); padding:12px 7px; }
+    .stats { display:flex; justify-content:space-between; color:var(--muted); font-size:12px; font-weight:800; }
+    .track { height:9px; background:#2a3958; border-radius:20px; overflow:hidden; margin:10px 0 18px; }
+    .fill { height:100%; width:100%; background:linear-gradient(90deg,#60a5fa,#a78bfa); }
+    #count { font-size:clamp(70px,18vw,100px); font-weight:900; text-align:center; line-height:1; letter-spacing:-5px; font-variant-numeric:tabular-nums; }
+    .count-label { text-align:center; color:var(--muted); font-size:12px; font-weight:800; letter-spacing:1px; margin:8px 0 20px; }
+    #spaceKey { border:2px solid #405477; border-bottom-width:7px; border-radius:15px; background:#10192c; text-align:center; padding:24px 10px; font-size:16px; font-weight:900; user-select:none; }
+    #spaceKey.pressed { transform:translateY(5px); border-bottom-width:2px; background:#1d3e72; }
+    #hint { text-align:center; color:var(--muted); font-size:13px; min-height:20px; margin:12px 0; }
+    .primary { width:100%; border:0; border-radius:13px; padding:16px; background:linear-gradient(100deg,#2563eb,#4f46e5); color:white; font-size:17px; font-weight:900; cursor:pointer; }
+    .primary:disabled { opacity:.55; cursor:not-allowed; }
+    #result { display:none; text-align:center; }
+    #result.show { display:block; }
+    .trophy { font-size:42px; }
+    #finalCount { font-size:48px; font-weight:900; }
+    .mode-choice { flex:1; padding:12px 6px; border:1px solid #3a4a6b; border-radius:12px; background:#10192c; color:#eaf2ff; font-size:14px; font-weight:800; cursor:pointer; }
+    .mode-choice.active { background:#1d3e72; border:2px solid var(--accent); padding:11px 5px; }
+    #typingArea, #wordsArea { display:none; }
+    #typingArea.show, #wordsArea.show { display:block; }
+    #typingPrompt, #wordsPrompt { font:800 clamp(25px,7vw,36px)/1.4 ui-monospace,SFMono-Regular,monospace; letter-spacing:5px; text-align:center; overflow-wrap:anywhere; padding:16px 8px; background:#10192c; border:1px solid #344665; border-radius:13px; margin:12px 0; }
+    #wordsPrompt { font-size:clamp(22px,6vw,32px); letter-spacing:2px; }
+    #typingInput, #wordsInput { width:100%; padding:15px; border:2px solid #405477; border-radius:12px; background:#0b1426; color:#fff; font:700 20px ui-monospace,monospace; letter-spacing:3px; outline:none; text-align:center; }
+    #typingInput:focus, #wordsInput:focus { border-color:var(--accent); }
+    #typingInput:disabled, #wordsInput:disabled { opacity:.65; }
+    .metrics { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:15px 0; }
+    .metric { background:#10192c; padding:14px; border-radius:13px; }
+    .metric strong { display:block; font-size:25px; }
+    .metric span { color:var(--muted); font-size:12px; }
+    footer { text-align:center; color:var(--muted); font-size:12px; margin-top:18px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="logo">⌨️</div>
+    <h1>SPACEBAR CHALLENGE</h1>
+    <p>¿Qué tan rápido puedes presionar espacio?</p>
+  </header>
+
+  <section class="panel">
+    <div class="label">ELIGE UNA MODALIDAD</div>
+    <div class="choices">
+      <button class="mode-choice active" id="spaceMode">⌨️ Espacio</button>
+      <button class="mode-choice" id="typingMode">🔤 Escritura</button>
+      <button class="mode-choice" id="wordsMode">📝 Dos palabras</button>
+    </div>
+  </section>
+
+  <section class="panel" id="spaceSettings">
+    <div class="label">ELIGE LA DURACIÓN</div>
+    <div class="choices" role="group" aria-label="Duración del reto">
+      <button class="choice active" data-seconds="3">3 segundos</button>
+      <button class="choice" data-seconds="5">5 segundos</button>
+      <button class="choice" data-seconds="10">10 segundos</button>
+    </div>
+  </section>
+
+  <section class="panel" id="spaceArea">
+    <div class="stats"><span id="status">LISTO PARA JUGAR</span><span id="timeLeft">3.00 s</span></div>
+    <div class="track"><div class="fill" id="progress"></div></div>
+    <div id="count" aria-live="polite">0</div>
+    <div class="count-label">PRESIONES REGISTRADAS</div>
+    <div id="spaceKey">PRESIONA LA BARRA ESPACIADORA</div>
+    <div id="hint">Pulsa iniciar y prepárate.</div>
+    <button class="primary" id="start">▶ INICIAR RETO</button>
+  </section>
+
+  <section class="panel" id="typingArea">
+    <div class="stats"><span id="typingStatus">RETO DE ESCRITURA</span><span id="typingClock">0.00 s</span></div>
+    <div class="label" style="margin-top:18px">ESCRIBE ESTA CADENA DE 10 LETRAS</div>
+    <div id="typingPrompt">----------</div>
+    <input id="typingInput" type="text" maxlength="10" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Escribe aquí..." aria-label="Escribe la cadena aleatoria">
+    <div id="typingHint" class="muted" style="text-align:center;font-size:13px;min-height:20px;margin:12px 0">Pulsa iniciar y escribe la cadena exactamente.</div>
+    <button class="primary" id="typingStart">▶ INICIAR RETO</button>
+  </section>
+
+  <section class="panel" id="typingResult" aria-live="polite" style="display:none;text-align:center">
+    <div class="trophy">⌨️</div>
+    <div class="label">¡CADENA COMPLETADA!</div>
+    <div id="typingFinal" style="font-size:48px;font-weight:900">0.00 s</div>
+    <div class="muted">tiempo para escribir las 10 letras</div>
+    <div class="metrics">
+      <div class="metric"><strong id="typingSpeed">0</strong><span>Letras por segundo</span></div>
+      <div class="metric"><strong id="typingBest">—</strong><span>Tu mejor tiempo</span></div>
+    </div>
+    <button class="primary" id="typingAgain">↻ NUEVA CADENA</button>
+  </section>
+
+  <section class="panel" id="wordsArea">
+    <div class="stats"><span id="wordsStatus">RETO DE DOS PALABRAS</span><span id="wordsClock">0.00 s</span></div>
+    <div class="label" style="margin-top:18px">ESCRIBE ESTAS DOS PALABRAS</div>
+    <div id="wordsPrompt">----------</div>
+    <input id="wordsInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Escribe aquí..." aria-label="Escribe las dos palabras aleatorias">
+    <div id="wordsHint" class="muted" style="text-align:center;font-size:13px;min-height:20px;margin:12px 0">Pulsa iniciar y escribe las dos palabras exactamente.</div>
+    <button class="primary" id="wordsStart">▶ INICIAR RETO</button>
+  </section>
+
+  <section class="panel" id="wordsResult" aria-live="polite" style="display:none;text-align:center">
+    <div class="trophy">📝</div>
+    <div class="label">¡PALABRAS COMPLETADAS!</div>
+    <div id="wordsFinal" style="font-size:48px;font-weight:900">0.00 s</div>
+    <div class="muted">tiempo para escribir las dos palabras</div>
+    <div class="metrics">
+      <div class="metric"><strong id="wordsSpeed">0</strong><span>Letras por segundo</span></div>
+      <div class="metric"><strong id="wordsBest">—</strong><span>Tu mejor tiempo</span></div>
+    </div>
+    <button class="primary" id="wordsAgain">↻ NUEVAS PALABRAS</button>
+  </section>
+
+  <section class="panel" id="result" aria-live="polite">
+    <div class="trophy">🏆</div>
+    <div class="label">¡TIEMPO TERMINADO!</div>
+    <div id="finalCount">0</div>
+    <div class="muted">presiones en el reto</div>
+    <div class="metrics">
+      <div class="metric"><strong id="rate">0</strong><span>Presiones por segundo</span></div>
+      <div class="metric"><strong id="best">0</strong><span>Mejor marca en este tiempo</span></div>
+    </div>
+    <button class="primary" id="again">↻ VOLVER A INTENTAR</button>
+  </section>
+  <footer id="footerHint">También puedes tocar el botón de espacio en pantalla. ¡Intenta superar tu récord!</footer>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const choices = [...document.querySelectorAll('.choice')];
+  let duration = 3, count = 0, running = false, startTime = 0, frame = null;
+  let mode = 'space', typingRunning = false, typingStartTime = 0, typingFrame = null;
+  let currentString = '', typingBest = null;
+  let wordsRunning = false, wordsStartTime = 0, wordsFrame = null;
+  let currentWords = '', wordsBest = null;
+  const records = {3: 0, 5: 0, 10: 0};
+
+  // Palabras en español de 5 letras o más, sin tildes ni "ñ" para facilitar la escritura.
+  const WORD_LIST = [
+    'aventura','biblioteca','cabeza','cable','cadena','camisa','camino','campo','canal','cantera',
+    'carta','castillo','celeste','cerebro','cintura','ciudad','cocina','colina','comida','conejo',
+    'corona','cuaderno','cuadro','cuerpo','cueva','cultura','destino','diamante','dinosaurio','drama',
+    'dulce','edificio','elefante','escalera','escuela','espada','estrella','familia','fiesta','fortuna',
+    'fuego','galleta','ganado','gigante','guitarra','helado','hermano','hierro','historia','hospital',
+    'invierno','jornada','ladrillo','laguna','leche','leyenda','libertad','liebre','linterna','lluvia',
+    'madera','maestro','mariposa','martillo','memoria','mercado','meseta','molino','moneda','motor',
+    'muchedumbre','mundo','naranja','nieve','nuevo','oficina','palabra','palacio','pantalla','parque',
+    'pastel','patata','pelota','pensamiento','perro','persona','piedra','planeta','playa','plaza',
+    'pluma','poder','poema','puente','puerta','pueblo','queso','reloj','retrato','riqueza',
+    'rueda','ruido','semana','serpiente','silencio','sombra','sombrero','tabla','taller','tambor',
+    'tarea','teatro','tiempo','tierra','tigre','tomate','torre','tortuga','trabajo','triste',
+    'trueno','ventana','verano','verde','vestido','viaje','viento','villa','vinagre','vuelo',
+    'zapato','zanahoria','zorro'
+  ];
+
+  function choose(seconds) {
+    if (running) return;
+    duration = seconds;
+    choices.forEach(button => button.classList.toggle('active', Number(button.dataset.seconds) === seconds));
+    $('timeLeft').textContent = `${duration.toFixed(2)} s`;
+    $('progress').style.width = '100%';
+  }
+
+  function setMode(nextMode) {
+    if (running || typingRunning || wordsRunning) return;
+    mode = nextMode;
+    const isSpace = mode === 'space';
+    const isTyping = mode === 'typing';
+    const isWords = mode === 'words';
+
+    $('spaceMode').classList.toggle('active', isSpace);
+    $('typingMode').classList.toggle('active', isTyping);
+    $('wordsMode').classList.toggle('active', isWords);
+
+    $('spaceSettings').style.display = isSpace ? '' : 'none';
+    $('spaceArea').style.display = isSpace ? '' : 'none';
+    $('typingArea').classList.toggle('show', isTyping);
+    $('wordsArea').classList.toggle('show', isWords);
+    $('result').classList.remove('show');
+    $('typingResult').style.display = 'none';
+    $('wordsResult').style.display = 'none';
+
+    if (isSpace) {
+      $('footerHint').textContent = 'También puedes tocar el botón de espacio en pantalla. ¡Intenta superar tu récord!';
+    } else if (isTyping) {
+      $('footerHint').textContent = 'Escribe las 10 letras en el orden indicado. El cronómetro termina al completar la cadena.';
+    } else {
+      $('footerHint').textContent = 'Escribe las dos palabras separadas por un espacio. El cronómetro termina al completar ambas.';
+    }
+
+    $('typingInput').value = '';
+    $('typingInput').disabled = true;
+    $('typingStart').style.display = '';
+    $('typingStart').textContent = '▶ INICIAR RETO';
+
+    $('wordsInput').value = '';
+    $('wordsInput').disabled = true;
+    $('wordsStart').style.display = '';
+    $('wordsStart').textContent = '▶ INICIAR RETO';
+  }
+
+  /* ---------------- Modalidad: barra espaciadora ---------------- */
+
+  function press() {
+    if (!running) return;
+    if (performance.now() - startTime >= duration * 1000) {
+      finishSpace();
+      return;
+    }
+    count++;
+    $('count').textContent = count;
+    $('spaceKey').classList.add('pressed');
+  }
+
+  function updateSpace(now) {
+    if (!running) return;
+    const remaining = Math.max(0, duration * 1000 - (now - startTime));
+    $('timeLeft').textContent = `${(remaining / 1000).toFixed(2)} s`;
+    $('progress').style.width = `${remaining / (duration * 1000) * 100}%`;
+    if (remaining <= 0) finishSpace();
+    else frame = requestAnimationFrame(updateSpace);
+  }
+
+  function finishSpace() {
+    if (!running) return;
+    running = false;
+    cancelAnimationFrame(frame);
+    records[duration] = Math.max(records[duration], count);
+    $('status').textContent = 'RETO COMPLETADO';
+    $('timeLeft').textContent = '0.00 s';
+    $('progress').style.width = '0%';
+    $('spaceKey').classList.remove('pressed');
+    $('hint').textContent = '¡Buen trabajo! ¿Puedes superar tu marca?';
+    $('finalCount').textContent = count;
+    $('rate').textContent = (count / duration).toFixed(2);
+    $('best').textContent = records[duration];
+    $('result').classList.add('show');
+    $('start').style.display = '';
+    $('start').textContent = '↻ JUGAR OTRA VEZ';
+  }
+
+  function startSpace() {
+    if (running) return;
+    count = 0;
+    running = true;
+    $('count').textContent = '0';
+    $('result').classList.remove('show');
+    $('start').style.display = 'none';
+    $('status').textContent = '¡DALE, DALE, DALE!';
+    $('hint').textContent = '¡Presiona espacio lo más rápido posible!';
+    startTime = performance.now();
+    frame = requestAnimationFrame(updateSpace);
+  }
+
+  /* ---------------- Modalidad: escritura (10 letras) ---------------- */
+
+  function randomLetters(length = 10) {
+    const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+    let result = '';
+    for (let i = 0; i < length; i++) result += alphabet[Math.floor(Math.random() * alphabet.length)];
+    return result;
+  }
+
+  function updateTypingClock() {
+    if (!typingRunning) return;
+    const elapsed = (performance.now() - typingStartTime) / 1000;
+    $('typingClock').textContent = `${elapsed.toFixed(2)} s`;
+    typingFrame = requestAnimationFrame(updateTypingClock);
+  }
+
+  function startTyping() {
+    if (typingRunning) return;
+    $('typingResult').style.display = 'none';
+    currentString = randomLetters();
+    $('typingPrompt').textContent = currentString;
+    $('typingInput').value = '';
+    $('typingInput').disabled = false;
+    $('typingStart').style.display = 'none';
+    $('typingStatus').textContent = '¡ESCRIBE!';
+    $('typingClock').textContent = '0.00 s';
+    $('typingHint').textContent = 'El tiempo comienza con tu primera letra.';
+    typingRunning = true;
+    typingStartTime = 0;
+    $('typingInput').focus();
+  }
+
+  function finishTyping() {
+    if (!typingRunning) return;
+    typingRunning = false;
+    cancelAnimationFrame(typingFrame);
+    const elapsed = (performance.now() - typingStartTime) / 1000;
+    if (typingBest === null || elapsed < typingBest) typingBest = elapsed;
+    $('typingClock').textContent = `${elapsed.toFixed(2)} s`;
+    $('typingFinal').textContent = `${elapsed.toFixed(2)} s`;
+    $('typingSpeed').textContent = (10 / elapsed).toFixed(2);
+    $('typingBest').textContent = `${typingBest.toFixed(2)} s`;
+    $('typingInput').disabled = true;
+    $('typingStatus').textContent = 'CADENA COMPLETADA';
+    $('typingHint').textContent = '¡Excelente! Intenta con una cadena diferente.';
+    $('typingResult').style.display = 'block';
+  }
+
+  $('typingInput').addEventListener('input', () => {
+    const input = $('typingInput');
+    const typed = input.value.toLowerCase().replace(/[^a-z]/g, '').slice(0, 10);
+    if (input.value !== typed) input.value = typed;
+    if (!typingRunning) return;
+    if (typingStartTime === 0 && typed.length > 0) {
+      typingStartTime = performance.now();
+      typingFrame = requestAnimationFrame(updateTypingClock);
+    }
+    // La cadena debe coincidir exactamente; los errores no cuentan como avance.
+    if (typed.length === 10) {
+      if (typed === currentString) finishTyping();
+      else {
+        $('typingHint').textContent = 'Hay alguna letra incorrecta. Corrige la cadena para terminar.';
+      }
+    } else {
+      $('typingHint').textContent = typed === currentString.slice(0, typed.length)
+        ? `${typed.length} de 10 letras`
+        : 'Revisa las letras: la cadena debe coincidir exactamente.';
+    }
+  });
+
+  /* ---------------- Modalidad: dos palabras aleatorias ---------------- */
+
+  function randomWords() {
+    const pick = () => WORD_LIST[Math.floor(Math.random() * WORD_LIST.length)];
+    const first = pick();
+    let second = pick();
+    while (second === first) second = pick();
+    return `${first} ${second}`;
+  }
+
+  function updateWordsClock() {
+    if (!wordsRunning) return;
+    const elapsed = (performance.now() - wordsStartTime) / 1000;
+    $('wordsClock').textContent = `${elapsed.toFixed(2)} s`;
+    wordsFrame = requestAnimationFrame(updateWordsClock);
+  }
+
+  function startWords() {
+    if (wordsRunning) return;
+    $('wordsResult').style.display = 'none';
+    currentWords = randomWords();
+    $('wordsPrompt').textContent = currentWords;
+    $('wordsInput').value = '';
+    $('wordsInput').maxLength = currentWords.length;
+    $('wordsInput').disabled = false;
+    $('wordsStart').style.display = 'none';
+    $('wordsStatus').textContent = '¡ESCRIBE!';
+    $('wordsClock').textContent = '0.00 s';
+    $('wordsHint').textContent = 'El tiempo comienza con tu primera letra.';
+    wordsRunning = true;
+    wordsStartTime = 0;
+    $('wordsInput').focus();
+  }
+
+  function finishWords() {
+    if (!wordsRunning) return;
+    wordsRunning = false;
+    cancelAnimationFrame(wordsFrame);
+    const elapsed = (performance.now() - wordsStartTime) / 1000;
+    if (wordsBest === null || elapsed < wordsBest) wordsBest = elapsed;
+    const letters = currentWords.replace(/ /g, '').length;
+    $('wordsClock').textContent = `${elapsed.toFixed(2)} s`;
+    $('wordsFinal').textContent = `${elapsed.toFixed(2)} s`;
+    $('wordsSpeed').textContent = (letters / elapsed).toFixed(2);
+    $('wordsBest').textContent = `${wordsBest.toFixed(2)} s`;
+    $('wordsInput').disabled = true;
+    $('wordsStatus').textContent = 'PALABRAS COMPLETADAS';
+    $('wordsHint').textContent = '¡Excelente! Intenta con otras palabras.';
+    $('wordsResult').style.display = 'block';
+  }
+
+  $('wordsInput').addEventListener('input', () => {
+    const input = $('wordsInput');
+    let typed = input.value.toLowerCase().replace(/[^a-z ]/g, '');
+    typed = typed.replace(/\s+/g, ' ').replace(/^ /, '');
+    if (typed.length > currentWords.length) typed = typed.slice(0, currentWords.length);
+    if (input.value !== typed) input.value = typed;
+    if (!wordsRunning) return;
+    if (wordsStartTime === 0 && typed.length > 0) {
+      wordsStartTime = performance.now();
+      wordsFrame = requestAnimationFrame(updateWordsClock);
+    }
+    if (typed.length === currentWords.length) {
+      if (typed === currentWords) finishWords();
+      else $('wordsHint').textContent = 'Hay alguna letra incorrecta. Corrige las palabras para terminar.';
+    } else {
+      $('wordsHint').textContent = currentWords.startsWith(typed)
+        ? `${typed.length} de ${currentWords.length} caracteres`
+        : 'Revisa las letras: las palabras deben coincidir exactamente.';
+    }
+  });
+
+  /* ---------------- Eventos generales ---------------- */
+
+  choices.forEach(button => button.addEventListener('click', () => choose(Number(button.dataset.seconds))));
+  $('spaceMode').addEventListener('click', () => setMode('space'));
+  $('typingMode').addEventListener('click', () => setMode('typing'));
+  $('wordsMode').addEventListener('click', () => setMode('words'));
+  $('start').addEventListener('click', startSpace);
+  $('again').addEventListener('click', startSpace);
+  $('spaceKey').addEventListener('click', press);
+  $('typingStart').addEventListener('click', startTyping);
+  $('typingAgain').addEventListener('click', startTyping);
+  $('wordsStart').addEventListener('click', startWords);
+  $('wordsAgain').addEventListener('click', startWords);
+
+  document.addEventListener('keydown', event => {
+    if (event.code === 'Space' && running) {
+      event.preventDefault();
+      if (!event.repeat) press();
+    }
+  });
+  document.addEventListener('keyup', event => {
+    if (event.code === 'Space') $('spaceKey').classList.remove('pressed');
+  });
+  choose(3);
+})();
+</script>
+</body>
+</html>
